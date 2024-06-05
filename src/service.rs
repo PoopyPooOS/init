@@ -1,7 +1,7 @@
 use std::{
     fs,
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
     time::Duration,
@@ -24,6 +24,15 @@ pub struct Service {
     pub id: String,
     #[serde(default)]
     pub dependencies: Option<Vec<String>>,
+    #[serde(default)]
+    pub io: Option<Vec<IoOption>>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub enum IoOption {
+    Out,
+    In,
+    Err,
 }
 
 #[derive(Debug, Clone)]
@@ -96,6 +105,7 @@ impl ServiceManager {
                 }
             }
         }
+
         true
     }
 
@@ -114,20 +124,43 @@ impl ServiceManager {
                 continue;
             }
 
-            if path.ends_with(".sh") {
-                Command::new("/sbin/shell")
-                    .arg(&path)
+            let shell_script = path.file_name().unwrap().to_str().unwrap().ends_with(".sh");
+
+            if shell_script {
+                let mut command = Command::new("/sbin/shell");
+
+                if let Some(io) = &service.io {
+                    for option in io {
+                        match option {
+                            IoOption::Out => command.stdout(Stdio::inherit()),
+                            IoOption::In => command.stdin(Stdio::inherit()),
+                            IoOption::Err => command.stderr(Stdio::inherit()),
+                        };
+                    }
+                }
+
+                command.arg(&path);
+                #[allow(clippy::expect_fun_call)]
+                command
                     .spawn()
-                    .unwrap_or_else(|_| {
-                        panic!("Failed to start sub-service from service: {}", service.name)
-                    });
+                    .expect(&format!("Failed to start sub-service from service: {}", service.name));
             } else {
-                Command::new("/sbin/shell")
-                    .arg(path)
+                let mut command = Command::new(&path);
+
+                if let Some(io) = &service.io {
+                    for option in io {
+                        match option {
+                            IoOption::Out => command.stdout(Stdio::inherit()),
+                            IoOption::In => command.stdin(Stdio::inherit()),
+                            IoOption::Err => command.stderr(Stdio::inherit()),
+                        };
+                    }
+                }
+
+                #[allow(clippy::expect_fun_call)]
+                command
                     .spawn()
-                    .unwrap_or_else(|_| {
-                        panic!("Failed to start sub-service from service: {}", service.name)
-                    });
+                    .expect(&format!("Failed to start sub-service from service: {}", service.name));
             }
         }
 
