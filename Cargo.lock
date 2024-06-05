@@ -101,7 +101,6 @@ dependencies = [
  "ipc-types",
  "linux-ipc",
  "nix",
- "posixmq",
  "serde",
  "toml",
 ]
@@ -202,15 +201,6 @@ dependencies = [
  "redox_syscall",
  "smallvec",
  "windows-targets 0.52.5",
-]
-
-[[package]]
-name = "posixmq"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5e01860c5a0b0c823066268fb7950019bac142c1cb8919e774823fe510e697a"
-dependencies = [
- "libc",
 ]
 
 [[package]]
