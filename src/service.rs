@@ -7,8 +7,7 @@ use std::{
     time::Duration,
 };
 
-use colored::Colorize;
-use log::{debug, info};
+use log::debug;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -91,7 +90,6 @@ impl ServiceManager {
                     locked_self = shared_self_clone.lock().unwrap();
                 }
                 if locked_self.start_service(&service).is_ok() {
-                    info!("[  {}  ] {}", "OK".green(), service.name);
                     locked_self.running_services.push(service.clone());
                 }
             });
