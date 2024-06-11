@@ -8,6 +8,7 @@ use std::{
 };
 
 use colored::Colorize;
+use log::{debug, info};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -22,10 +23,16 @@ pub struct Service {
     pub description: String,
     pub path: String,
     pub id: String,
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
     #[serde(default)]
     pub dependencies: Option<Vec<String>>,
     #[serde(default)]
     pub io: Option<Vec<IoOption>>,
+}
+
+fn default_enabled() -> bool {
+    true
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -65,12 +72,16 @@ impl ServiceManager {
     }
 
     pub fn load_all(&mut self) -> ! {
-        println!("Loading services...\n");
+        debug!("Loading services...\n");
 
         let shared_self = Arc::new(Mutex::new(self.clone()));
         let mut handles = vec![];
 
         for service in self.services.clone() {
+            if !service.enabled {
+                continue;
+            }
+
             let shared_self_clone = Arc::clone(&shared_self);
             let handle = thread::spawn(move || {
                 let mut locked_self = shared_self_clone.lock().unwrap();
@@ -80,7 +91,7 @@ impl ServiceManager {
                     locked_self = shared_self_clone.lock().unwrap();
                 }
                 if locked_self.start_service(&service).is_ok() {
-                    println!("[  {}  ] {}", "OK".green(), service.name);
+                    info!("[  {}  ] {}", "OK".green(), service.name);
                     locked_self.running_services.push(service.clone());
                 }
             });

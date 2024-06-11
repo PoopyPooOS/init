@@ -14,6 +14,7 @@ pub fn init_handler() {
             panic_info.location().expect("Failed to get panic location"),
             panic_info.message().expect("Failed to get panic message.")
         );
+
         let _ = set_cad_enabled(true);
         println!("\nOptions:");
         println!(" Press enter to try to spawn a shell.");
