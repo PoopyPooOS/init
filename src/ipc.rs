@@ -1,12 +1,15 @@
+use std::fs;
+
 use crate::commands;
-use ipc_types::Command;
+use ipc_init::Command;
 use linux_ipc::IpcChannel;
 
 pub fn init() -> ! {
-    let mut ipc = IpcChannel::new("/tmp/init.sock").expect("Failed to create IPC channel");
+    fs::create_dir_all("/tmp/init/services").expect("Failed to setup directories for IPC");
+    let mut ipc = IpcChannel::new("/tmp/init/init.sock").expect("Failed to create IPC channel");
 
     loop {
-        let command: Command = ipc.receive().expect("Failed to listen on IPC channel");
+        let (command, _) = ipc.receive::<Command, ()>().expect("Failed to listen on IPC channel");
 
         match command {
             Command::PowerOff => commands::poweroff(),
