@@ -31,7 +31,7 @@ pub fn init_handler() {
                         .stdin(Stdio::inherit())
                         .stdout(Stdio::inherit())
                         .stderr(Stdio::inherit())
-                        .env("PATH", "/:/sbin")
+                        .env("PATH", "/sbin:/bin")
                         .spawn()
                         .expect("Failed to start shell");
 
