@@ -25,4 +25,10 @@ impl Init {
             .send::<Command, ()>(Command::PowerOff)
             .expect("Failed to send poweroff command");
     }
+
+    pub fn service_ready(&mut self, id: &str) {
+        self.ipc
+            .send::<Command, ()>(Command::ServiceReady(id.to_owned()))
+            .expect("Failed to send service ready command");
+    }
 }

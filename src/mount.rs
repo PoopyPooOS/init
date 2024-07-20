@@ -1,6 +1,6 @@
 use std::{fs, path::PathBuf, process::Command};
 
-pub fn mount_pseudofs(fs_type: &str, target: &str) {
+pub fn pseudofs(fs_type: &str, target: &str) {
     if !PathBuf::from(target).exists() {
         fs::create_dir_all(target).expect("Failed to create pseudofs mount directory");
     }

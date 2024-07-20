@@ -36,7 +36,7 @@ pub fn init_handler() {
                         .expect("Failed to start shell");
 
                     let _ = shell.wait();
-                    commands::poweroff();
+                    commands::Commands.poweroff();
                 }
             }
         }

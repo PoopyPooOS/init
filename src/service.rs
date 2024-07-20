@@ -1,27 +1,21 @@
 use std::{
+    collections::{HashMap, HashSet},
     fs,
     path::PathBuf,
     process::{Command, Stdio},
-    sync::{Arc, Mutex},
-    thread,
+    sync::Arc,
     time::Duration,
 };
 
-use log::debug;
+use colored::{Color, Colorize};
 use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-pub struct ServiceManagerConfig {
-    service: Vec<Service>,
-}
+use tokio::sync::RwLock;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Service {
     pub name: String,
-    #[allow(dead_code)]
-    pub description: String,
-    pub path: String,
     pub id: String,
+    pub exec: Exec,
     #[serde(default = "default_enabled")]
     pub enabled: bool,
     #[serde(default)]
@@ -35,6 +29,27 @@ fn default_enabled() -> bool {
 }
 
 #[derive(Debug, Deserialize, Clone)]
+pub struct Exec(String);
+
+impl Exec {
+    pub fn as_command(&self) -> Command {
+        let split = self.0.split_whitespace().collect::<Vec<&str>>();
+        let path = split[0];
+        let args = &split[1..];
+
+        let mut command = Command::new(path);
+        command.args(args);
+
+        // By default, services are silent and can only log to files.
+        command.stdout(Stdio::null());
+        command.stdin(Stdio::null());
+        command.stderr(Stdio::null());
+
+        command
+    }
+}
+
+#[derive(Debug, Deserialize, Clone)]
 pub enum IoOption {
     Out,
     In,
@@ -42,74 +57,63 @@ pub enum IoOption {
 }
 
 #[derive(Debug, Clone)]
-pub struct ServiceManager {
-    pub running_services: Vec<Service>,
+pub struct Manager {
     pub services: Vec<Service>,
-    service_path: PathBuf,
 }
 
-impl ServiceManager {
-    pub fn new(service_path: PathBuf) -> Self {
-        if !service_path.exists() {
-            panic!("Services config not found.");
-        }
+impl Manager {
+    pub fn new(services_path: PathBuf) -> Self {
+        assert!(services_path.exists(), "Services config not found.");
 
-        let services = {
-            let config_raw = fs::read_to_string(service_path.join("services.toml"))
-                .expect("Failed to read services file (/etc/init/services/services.toml)");
+        let services = fs::read_dir(services_path)
+            .expect("Failed to read service config directory")
+            .filter_map(Result::ok)
+            .filter(|file| file.path().extension().map_or(false, |ext| ext == "toml"))
+            .map(|file| fs::read_to_string(file.path()).expect("Failed to read service file"))
+            .map(|raw| toml::from_str::<Service>(&raw).expect("Failed to parse service file"))
+            .filter(|service| service.enabled)
+            .collect::<Vec<_>>();
 
-            toml::from_str::<ServiceManagerConfig>(&config_raw)
-                .expect("Failed to parse services file (/etc/init/services/services.toml)")
-                .service
-        };
-
-        Self {
-            running_services: Vec::new(),
-            services,
-            service_path,
-        }
+        Self { services }
     }
 
-    pub fn load_all(&mut self) -> ! {
-        debug!("Loading services...\n");
+    #[allow(clippy::unused_async)]
+    pub async fn load_all(&mut self, service_ready_list: Arc<RwLock<Vec<String>>>) -> ! {
+        assert!(!self.has_circular_dependency(), "Circular dependency detected!");
 
-        let shared_self = Arc::new(Mutex::new(self.clone()));
-        let mut handles = vec![];
+        for service in &self.services {
+            println!("[  {}  ] Starting {}", "OK".color(Color::Green), service.name);
 
-        for service in self.services.clone() {
-            if !service.enabled {
-                continue;
+            loop {
+                let service_ready_list = Arc::clone(&service_ready_list);
+                let can_start = self.can_start(service, service_ready_list).await;
+                // let service_name = &service.name;
+
+                // println!("{:#?}", self.running_services);
+                // println!("{service_name} can start: {can_start}");
+
+                if can_start {
+                    break;
+                }
+
+                tokio::time::sleep(Duration::from_millis(20)).await;
             }
 
-            let shared_self_clone = Arc::clone(&shared_self);
-            let handle = thread::spawn(move || {
-                let mut locked_self = shared_self_clone.lock().unwrap();
-                while !locked_self.can_start(&service) {
-                    drop(locked_self);
-                    thread::sleep(Duration::from_millis(100));
-                    locked_self = shared_self_clone.lock().unwrap();
-                }
-                if locked_self.start_service(&service).is_ok() {
-                    locked_self.running_services.push(service.clone());
-                }
-            });
-            handles.push(handle);
-        }
-
-        for handle in handles {
-            handle.join().unwrap();
+            self.start_service(service);
         }
 
         init::infinite_loop()
     }
 
-    fn can_start(&self, service: &Service) -> bool {
+    async fn can_start(&self, service: &Service, service_ready_list: Arc<RwLock<Vec<String>>>) -> bool {
         if let Some(dependencies) = &service.dependencies {
             for dependency in dependencies {
+                let service_ready_list = service_ready_list.read().await;
+
                 if dependency == "*" {
-                    return self.running_services.len() == self.services.len() - 1;
+                    return service_ready_list.len() == self.services.len() - 1;
                 }
-                if !self.running_services.iter().any(|s| &s.id == dependency) {
+                if !service_ready_list.iter().any(|id| id == dependency) {
                     return false;
                 }
             }
@@ -118,61 +122,71 @@ impl ServiceManager {
         true
     }
 
-    pub fn start_service(&mut self, service: &Service) -> Result<(), ()> {
-        let sub_services = fs::read_dir(self.service_path.join(&service.path)).unwrap();
+    #[allow(clippy::unused_self)]
+    pub fn start_service(&self, service: &Service) {
+        let mut command = service.exec.as_command();
 
-        for sub_service in sub_services {
-            if sub_service.is_err() {
-                return Ok(());
-            }
-
-            let sub_service = sub_service.unwrap();
-            let path = sub_service.path();
-
-            if path.is_dir() {
-                continue;
-            }
-
-            let shell_script = path.file_name().unwrap().to_str().unwrap().ends_with(".sh");
-
-            if shell_script {
-                let mut command = Command::new("/sbin/shell");
-
-                if let Some(io) = &service.io {
-                    for option in io {
-                        match option {
-                            IoOption::Out => command.stdout(Stdio::inherit()),
-                            IoOption::In => command.stdin(Stdio::inherit()),
-                            IoOption::Err => command.stderr(Stdio::inherit()),
-                        };
-                    }
-                }
-
-                command.arg(&path);
-                #[allow(clippy::expect_fun_call)]
-                command
-                    .spawn()
-                    .expect(&format!("Failed to start sub-service from service: {}", service.name));
-            } else {
-                let mut command = Command::new(&path);
-
-                if let Some(io) = &service.io {
-                    for option in io {
-                        match option {
-                            IoOption::Out => command.stdout(Stdio::inherit()),
-                            IoOption::In => command.stdin(Stdio::inherit()),
-                            IoOption::Err => command.stderr(Stdio::inherit()),
-                        };
-                    }
-                }
-
-                #[allow(clippy::expect_fun_call)]
-                command
-                    .spawn()
-                    .expect(&format!("Failed to start sub-service from service: {}", service.name));
+        if let Some(io) = &service.io {
+            for option in io {
+                match option {
+                    IoOption::Out => command.stdout(Stdio::inherit()),
+                    IoOption::In => command.stdin(Stdio::inherit()),
+                    IoOption::Err => command.stderr(Stdio::inherit()),
+                };
             }
         }
 
-        Ok(())
+        command
+            .status()
+            .unwrap_or_else(|_| panic!("Failed to start service \"{}\"", service.name));
+    }
+
+    fn has_circular_dependency(&self) -> bool {
+        let mut visited = HashSet::new();
+        let mut stack = HashSet::new();
+        let mut graph = HashMap::new();
+
+        for service in &self.services {
+            graph.insert(&service.id, &service.dependencies);
+        }
+
+        for service in &self.services {
+            if self.is_cyclic(&service.id, &graph, &mut visited, &mut stack) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    #[allow(clippy::only_used_in_recursion)]
+    fn is_cyclic(
+        &self,
+        node: &String,
+        graph: &HashMap<&String, &Option<Vec<String>>>,
+        visited: &mut HashSet<String>,
+        stack: &mut HashSet<String>,
+    ) -> bool {
+        if stack.contains(node) {
+            return true;
+        }
+
+        if visited.contains(node) {
+            return false;
+        }
+
+        visited.insert(node.clone());
+        stack.insert(node.clone());
+
+        if let Some(Some(neighbors)) = graph.get(node) {
+            for neighbor in neighbors {
+                if self.is_cyclic(neighbor, graph, visited, stack) {
+                    return true;
+                }
+            }
+        }
+
+        stack.remove(node);
+        false
     }
 }
