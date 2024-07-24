@@ -1,3 +1,2 @@
 /target
-/.vscode
-/crates/ipc-types/Cargo.lock
+/ipc-init/Cargo.lock
