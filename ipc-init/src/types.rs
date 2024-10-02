@@ -4,6 +4,4 @@ use serde::{Deserialize, Serialize};
 pub enum Command {
     PowerOff,
     Reboot,
-    /// id of the service
-    ServiceReady(String),
 }

@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub init_path: PathBuf,
     pub env_vars_path: PathBuf,
 }
 

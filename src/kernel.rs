@@ -1,6 +1,7 @@
 use linux_args::KernelArgs;
 use std::fs;
 
+// I will probably use this some day.
 #[allow(dead_code)]
 pub fn get_args() -> KernelArgs {
     let cmdline = fs::read_to_string("/proc/cmdline").unwrap_or_default();

@@ -12,7 +12,7 @@ pub fn init_handler() {
         println!(
             "Panic occured in init at {}: \n{:?}",
             panic_info.location().expect("Failed to get panic location"),
-            panic_info.message().expect("Failed to get panic message.")
+            panic_info.to_string()
         );
 
         let _ = set_cad_enabled(true);
