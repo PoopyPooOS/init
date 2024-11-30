@@ -13,8 +13,10 @@ colored = "2.1.0"
 crossterm = "0.27.0"
 linux-ipc = "0.2.1"
 nix = { version = "0.29.0", features = ["reboot", "mount"] }
-serde = { version = "1.0.200", features = ["derive"] }
+serde = { version = "1.0.215", features = ["derive"] }
 toml = "0.8.12"
-ipc-init = { path = "ipc-init" }
 linux-args = "0.1.0"
 tokio = { version = "1.38.0", features = ["full"] }
+
+tl = { git = "https://github.com/altacountbabi/tl" }
+logger = { git = "https://github.com/altacountbabi/tl" }

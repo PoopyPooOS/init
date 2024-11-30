@@ -1,1 +1,6 @@
 out = "/init"
+post_copy_script = """
+    cd "$ROOTFS"
+    ln -sf init system/bin/poweroff
+    ln -sf init system/bin/reboot
+"""

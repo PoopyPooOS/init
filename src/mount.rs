@@ -1,3 +1,4 @@
+use logger::fatal;
 use std::{fs, path::PathBuf, process::Command};
 
 pub fn pseudofs(fs_type: &str, target: &str) {
@@ -5,11 +6,20 @@ pub fn pseudofs(fs_type: &str, target: &str) {
         fs::create_dir_all(target).expect("Failed to create pseudofs mount directory");
     }
 
-    Command::new("/sbin/mount")
-        .args(["-t", fs_type])
-        .args([target, target])
-        .spawn()
-        .expect("Failed to mount filesystem")
-        .wait()
-        .expect("Failed to wait for proess to exit");
+    let mut command = Command::new("/system/bin/mount");
+    command.args(["-t", fs_type, target, target]);
+
+    match command.spawn() {
+        Ok(mut child) => match child.wait() {
+            Ok(_) => {}
+            Err(error) => {
+                fatal!(format!("Failed to mount pseudofs '{fs_type}' to '{target}': {error}"));
+                panic!("Failed to mount pseudofs");
+            }
+        },
+        Err(error) => {
+            fatal!(format!("Failed to mount pseudofs '{fs_type}' to '{target}': {error}"));
+            panic!("Failed to mount pseudofs");
+        }
+    }
 }
