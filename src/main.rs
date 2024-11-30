@@ -76,8 +76,11 @@ async fn main() -> Result<!, Box<dyn std::error::Error>> {
     info!("Starting service daemon");
     Command::new("/system/bin/serviced").spawn()?;
 
+    infinite_loop()
+}
+
+pub fn infinite_loop() -> ! {
     loop {
-        // Sleep forever
         thread::sleep(Duration::from_secs(u64::MAX));
     }
 }
