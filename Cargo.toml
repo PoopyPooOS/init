@@ -18,5 +18,5 @@ toml = "0.8.12"
 linux-args = "0.1.0"
 tokio = { version = "1.38.0", features = ["full"] }
 
-tl = { git = "https://github.com/altacountbabi/tl" }
-logger = { git = "https://github.com/altacountbabi/tl" }
+tl = { path = "../tl" }
+logger = { path = "../logger" }

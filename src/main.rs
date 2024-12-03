@@ -7,7 +7,6 @@ use std::{
     path::PathBuf,
     process::{self, Command},
     thread,
-    time::Duration,
 };
 
 mod commands;
@@ -74,13 +73,11 @@ async fn main() -> Result<!, Box<dyn std::error::Error>> {
     .unwrap_or_else(|err| eprintln!("Failed to create symlink from /dev/console to /dev/tty: {err}"));
 
     info!("Starting service daemon");
-    Command::new("/system/bin/serviced").spawn()?;
+    Command::new("/system/bin/serviced")
+        .spawn()
+        .expect("Failed to start service daemon")
+        .wait()
+        .expect("Service daemon exited with non-zero status code");
 
-    infinite_loop()
-}
-
-pub fn infinite_loop() -> ! {
-    loop {
-        thread::sleep(Duration::from_secs(u64::MAX));
-    }
+    panic!("Service daemon exited with non-zero status code");
 }
