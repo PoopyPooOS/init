@@ -1,6 +1,7 @@
 #![feature(never_type, panic_payload_as_str)]
 
 use logger::{fatal, info};
+use panic::crash_log;
 use std::{
     env, fs, io,
     os::unix,
@@ -41,8 +42,7 @@ async fn main() -> Result<!, Box<dyn std::error::Error>> {
     let system_config = match config::read().await {
         Ok(config) => config,
         Err(error) => {
-            error.output();
-            process::exit(1);
+            crash_log(Some(*error), None);
         }
     };
 
