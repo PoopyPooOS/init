@@ -7,7 +7,7 @@ pub fn pseudofs(fs_type: &str, target: &str) {
         fs::create_dir_all(target).expect("Failed to create pseudofs mount directory");
     }
 
-    let mut command = Command::new("/system/bin/mount");
+    let mut command = Command::new("/bin/mount");
     command.args(["-t", fs_type, target, target]);
 
     match command.spawn() {

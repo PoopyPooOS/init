@@ -67,21 +67,8 @@ fn main() -> Result<!, Box<dyn Error>> {
         mount::pseudofs(fs_type, target);
     }
 
-    // // Temporary fix for certain TUI apps that use /dev/tty
-    // (|| -> Result<(), io::Error> {
-    //     fs::remove_file("/dev/tty")?;
-    //     unix::fs::symlink("/dev/console", "/dev/tty")?;
-
-    //     Ok(())
-    // })()
-    // .unwrap_or_else(|err| {
-    //     warn!(format!(
-    //         "Failed to create symlink from /dev/console to /dev/tty: {err}"
-    //     ));
-    // });
-
     info!("Starting service daemon");
-    Command::new("/system/bin/serviced")
+    Command::new("/bin/serviced")
         .spawn()
         .expect("Failed to start service daemon")
         .wait()
