@@ -1,10 +1,9 @@
 #![feature(never_type, panic_payload_as_str)]
 
-use logger::{fatal, info};
 use panic::crash_log;
+use prelude::logger::{self, fatal, info};
 use std::{
     env,
-    error::Error,
     path::PathBuf,
     process::{self, Command},
 };
@@ -14,7 +13,8 @@ mod config;
 mod mount;
 mod panic;
 
-fn main() -> Result<!, Box<dyn Error>> {
+#[prelude::entry(ok: !)]
+fn main() {
     // FIXME: Signal the actual init.
     if process::id() != 1 {
         let exe = PathBuf::from(env::args().next().unwrap_or_default())
@@ -49,6 +49,7 @@ fn main() -> Result<!, Box<dyn Error>> {
     unsafe {
         env::remove_var("BOOT_IMAGE");
         // Compatibility with the XDG config path
+        // TODO: Set this per-user at login
         env::set_var("XDG_CONFIG_HOME", "/config");
 
         for (key, value) in system_config.environment {
@@ -74,5 +75,5 @@ fn main() -> Result<!, Box<dyn Error>> {
         .wait()
         .expect("Service daemon exited with non-zero status code");
 
-    panic!("Service daemon exited with non-zero status code");
+    panic!("Service daemon exited with non-zero status code")
 }

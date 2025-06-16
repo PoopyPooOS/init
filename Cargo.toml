@@ -1,13 +1,16 @@
 [package]
 name = "init"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-serde = { workspace = true }
-colored = { workspace = true }
-crossterm = { workspace = true }
+prelude.workspace = true
+
+serde.workspace = true
+crossterm.workspace = true
 rustix = { workspace = true, features = ["system"] }
 
-tl = { workspace = true }
-logger = { workspace = true }
+tl.workspace = true
+
+[lints]
+workspace = true

@@ -1,7 +1,7 @@
-use logger::{Log, make_fatal};
+use prelude::logger::{make_fatal, Log};
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf};
-use tl::{Source, eval};
+use tl::{eval, Source};
 
 #[derive(Deserialize)]
 pub struct PartialConfig {

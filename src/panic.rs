@@ -1,10 +1,10 @@
 use crate::commands;
 use crossterm::{
-    event::{Event, KeyCode, read},
+    event::{read, Event, KeyCode},
     terminal::{disable_raw_mode, enable_raw_mode},
 };
-use logger::{Colorize, Log, LogLevel, fatal, warn};
-use rustix::system::{RebootCommand, reboot};
+use prelude::logger::{fatal, warn, Colorize, Log, LogLevel};
+use rustix::system::{reboot, RebootCommand};
 use std::{
     panic::PanicHookInfo,
     process::{Command, Stdio},
@@ -44,21 +44,19 @@ pub fn crash_log(log: Option<Log>, panic_info: Option<&PanicHookInfo>) -> ! {
     let _ = enable_raw_mode();
 
     loop {
-        if let Event::Key(event) = read().unwrap() {
-            if event.code == KeyCode::Enter {
-                let _ = disable_raw_mode();
+        if matches!(read().unwrap(), Event::Key(event) if event.code == KeyCode::Enter) {
+            let _ = disable_raw_mode();
 
-                let mut shell = Command::new("/system/bin/shell")
-                    .stdin(Stdio::inherit())
-                    .stdout(Stdio::inherit())
-                    .stderr(Stdio::inherit())
-                    .env("PATH", "/system/bin:/bin")
-                    .spawn()
-                    .expect("Failed to start shell");
+            let mut shell = Command::new("/system/bin/shell")
+                .stdin(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .stderr(Stdio::inherit())
+                .env("PATH", "/bin")
+                .spawn()
+                .expect("Failed to start shell");
 
-                let _ = shell.wait();
-                commands::poweroff();
-            }
+            let _ = shell.wait();
+            commands::poweroff();
         }
     }
 }

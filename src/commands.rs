@@ -3,8 +3,8 @@ use crossterm::{
     execute,
     terminal::{Clear, ClearType},
 };
-use logger::info;
-use rustix::system::{RebootCommand, reboot as linux_reboot};
+use prelude::logger::info;
+use rustix::system::{reboot as linux_reboot, RebootCommand};
 use std::io::stdout;
 
 pub fn poweroff() {

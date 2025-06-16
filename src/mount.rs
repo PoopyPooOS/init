@@ -1,5 +1,5 @@
 use crate::panic::crash_log;
-use logger::make_fatal;
+use prelude::logger::make_fatal;
 use std::{fs, path::PathBuf, process::Command};
 
 pub fn pseudofs(fs_type: &str, target: &str) {
